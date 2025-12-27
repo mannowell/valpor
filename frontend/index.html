@@ -223,9 +223,7 @@
                         <button class="btn btn-success me-2" onclick="simularDia()">
                             <i class="fas fa-calendar-day me-1"></i>Simular 1 Dia
                         </button>
-                        <button class="btn btn-warning me-2" onclick="testarWebhook()">
-                            <i class="fas fa-paper-plane me-1"></i>Testar Webhook
-                        </button>
+
                         <button class="btn btn-info me-2" onclick="recalcularAlertas()">
                             <i class="fas fa-redo-alt me-1"></i>Recalcular Alertas
                         </button>
@@ -296,22 +294,7 @@
                     </div>
                 </div>
                 
-                <!-- Webhook Demo -->
-                <div class="webhook-demo mt-4">
-                    <h6><i class="fas fa-code me-2"></i>Webhook Demo</h6>
-                    <p>Teste o endpoint de webhook do sistema:</p>
-                    <div class="input-group mb-2">
-                        <input type="text" class="form-control" id="webhook-url" 
-                               value="http://localhost:3000/api/webhook/teste" 
-                               placeholder="URL do webhook">
-                        <button class="btn btn-sm btn-outline-primary" onclick="enviarWebhook()">
-                            <i class="fas fa-paper-plane"></i>
-                        </button>
-                    </div>
-                    <pre id="webhook-response" class="bg-dark text-light p-2 rounded" 
-                         style="font-size: 0.8rem; max-height: 150px; overflow: auto;">
-Clique em "Enviar" para testar o webhook...</pre>
-                </div>
+
             </div>
         </div>
 
@@ -330,7 +313,7 @@ Clique em "Enviar" para testar o webhook...</pre>
                             <li>Consumo por fase de crescimento (1.0kg a 2.0kg/animal/dia)</li>
                             <li>Mortalidade estimada por fase (0.05% a 0.3%/dia)</li>
                             <li>Alertas com antecedência para recarga</li>
-                            <li>Webhooks para integração com fábrica</li>
+
                         </ul>
                         <p class="mb-0"><small>API Backend: <code id="api-url">http://localhost:3000</code></small></p>
                         <p class="mb-0"><small>Auto-atualização: <span id="auto-update-status">Ativada (30s)</span></small></p>
@@ -947,11 +930,6 @@ NORMAL: > 5 dias restantes</pre>
             }
         }
 
-        // Testar webhook
-        function testarWebhook() {
-            const modal = new bootstrap.Modal(document.getElementById('modalCalculos'));
-            modal.show();
-        }
 
         // Mostrar cálculos
         function mostrarCalculos() {
@@ -978,46 +956,7 @@ NORMAL: > 5 dias restantes</pre>
             }
         }
 
-        // Enviar webhook
-        async function enviarWebhook() {
-            const urlInput = document.getElementById('webhook-url');
-            const responseElement = document.getElementById('webhook-response');
-            
-            const url = urlInput.value || `${API_URL}/api/webhook/teste`;
-            
-            if (!url) {
-                responseElement.textContent = '❌ Erro: URL do webhook é obrigatória';
-                return;
-            }
-            
-            responseElement.textContent = '🔄 Enviando webhook...';
-            
-            try {
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        evento: 'teste_dashboard',
-                        origem: 'PigFeed Manager Dashboard',
-                        timestamp: new Date().toISOString(),
-                        dados: {
-                            sistema: 'Gestão de Ração para Suínos',
-                            silos_monitorados: 7,
-                            capacidade_total: '86 toneladas',
-                            status: 'operacional',
-                            versao: '1.0.0',
-                            mensagem: 'Webhook de teste do sistema de gestão inteligente! 🚜'
-                        }
-                    })
-                });
-                
-                const data = await response.json();
-                responseElement.textContent = JSON.stringify(data, null, 2);
-                
-            } catch (error) {
-                responseElement.textContent = `❌ ERRO: ${error.message}\n\nCertifique-se que:\n1. Backend está rodando em ${API_URL}\n2. URL está correta\n3. Não há bloqueio de CORS`;
-            }
-        }
+
 
         // ========== INICIALIZAÇÃO ==========
 

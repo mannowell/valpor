@@ -1,14 +1,45 @@
 const express = require('express');
 const cors = require('cors');
 const { v4: uuidv4 } = require('uuid');
+const fs = require('fs');
+const path = require('path');
+const nodemailer = require('nodemailer');
+const twilio = require('twilio');
 require('dotenv').config();
 
 const app = express();
-const PORT = 3000; // PORTA FIXA 3000
+const PORT = process.env.PORT || 3000; // PORT configurável
 
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Configurações de notificação (padrões podem ser sobrescritos via .env)
+const ADMIN_CONTACTS = {
+  email: process.env.ADMIN_EMAIL || 'wellison.nascimento@hotmail.com',
+  phone_sms: process.env.ADMIN_PHONE_SMS || '+351965563654',
+  phone_whatsapp: process.env.ADMIN_WHATSAPP || '+5598987566701'
+};
+
+// Transportador de email (criado somente se variáveis SMTP definidas)
+let emailTransporter = null;
+if (process.env.SMTP_HOST && process.env.SMTP_USER) {
+  emailTransporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT || '587', 10),
+    secure: process.env.SMTP_SECURE === 'true',
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS
+    }
+  });
+}
+
+// Cliente Twilio (criado só se variáveis estiverem presentes)
+let twilioClient = null;
+if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
+  twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+}
 
 // ========== DADOS COMPLETOS - 7 SILOS ==========
 let silos = [
@@ -181,6 +212,42 @@ let lotes = [
 // Histórico de mudanças para monitoramento
 let historicoMudancas = [];
 
+// Persistência simples em arquivo JSON (salva silos, lotes e histórico)
+const DATA_FILE = path.join(__dirname, 'data', 'data.json');
+
+function saveData() {
+  try {
+    const payload = { silos, lotes, historicoMudancas };
+    fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
+    fs.writeFileSync(DATA_FILE, JSON.stringify(payload, null, 2), 'utf8');
+    console.log('✅ Dados salvos em', DATA_FILE);
+  } catch (err) {
+    console.error('❌ Erro ao salvar dados:', err);
+  }
+}
+
+function loadData() {
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      const raw = fs.readFileSync(DATA_FILE, 'utf8');
+      const d = JSON.parse(raw);
+      silos = d.silos || silos;
+      lotes = d.lotes || lotes;
+      historicoMudancas = d.historicoMudancas || historicoMudancas;
+      console.log('✅ Dados carregados de', DATA_FILE);
+    } else {
+      // salva os dados iniciais para persistência
+      saveData();
+    }
+  } catch (err) {
+    console.error('❌ Erro ao carregar dados:', err);
+  }
+}
+
+// Carregar dados ao iniciar
+loadData();
+
+
 // ========== CONSTANTES DE CÁLCULO ==========
 const CONSTANTES = {
   CONSUMO_POR_FASE: {
@@ -217,6 +284,66 @@ function determinarNivelAlerta(dias) {
   if (dias <= 5) return { nivel: 'ATENCAO', cor: '#2ecc71', prioridade: 4 };
   return { nivel: 'NORMAL', cor: '#3498db', prioridade: 5 };
 }
+
+// Envio de notificações (email / sms / whatsapp) — não envia sem configuração de provedor
+async function sendEmail(to, subject, text) {
+  if (!emailTransporter) {
+    console.log('📧 SMTP não configurado - pulando envio de email para', to);
+    return false;
+  }
+  try {
+    await emailTransporter.sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to, subject, text });
+    console.log('📧 Email enviado para', to);
+    return true;
+  } catch (err) {
+    console.error('❌ Falha ao enviar email:', err);
+    return false;
+  }
+}
+
+async function sendSMS(to, body) {
+  if (!twilioClient) {
+    console.log('📲 Twilio não configurado - pulando SMS para', to);
+    return false;
+  }
+  try {
+    await twilioClient.messages.create({ body, from: process.env.TWILIO_FROM_SMS, to });
+    console.log('📲 SMS enviado para', to);
+    return true;
+  } catch (err) {
+    console.error('❌ Falha ao enviar SMS:', err);
+    return false;
+  }
+}
+
+async function sendWhatsApp(to, body) {
+  if (!twilioClient) {
+    console.log('🟢 Twilio não configurado - pulando WhatsApp para', to);
+    return false;
+  }
+  try {
+    // to e from devem ter formato: whatsapp:+551199999999
+    await twilioClient.messages.create({ body, from: process.env.TWILIO_FROM_WHATSAPP, to: `whatsapp:${to}` });
+    console.log('🟢 WhatsApp enviado para', to);
+    return true;
+  } catch (err) {
+    console.error('❌ Falha ao enviar WhatsApp:', err);
+    return false;
+  }
+}
+
+async function notifyAlert(silo, message) {
+  // Apenas registra e tenta enviar se houver provider configurado
+  console.log('🔔 Notificação de alerta:', silo.numero, message);
+  if (process.env.NOTIFY_ON_ALERT === 'false') return;
+  // Email
+  if (ADMIN_CONTACTS.email) await sendEmail(ADMIN_CONTACTS.email, `Alerta Silo ${silo.numero}`, message);
+  // SMS
+  if (ADMIN_CONTACTS.phone_sms) await sendSMS(ADMIN_CONTACTS.phone_sms, message);
+  // WhatsApp
+  if (ADMIN_CONTACTS.phone_whatsapp) await sendWhatsApp(ADMIN_CONTACTS.phone_whatsapp, message);
+}
+
 
 function calcularQuantidadePedido(silo, consumoDiario) {
   const capacidadeKg = silo.capacidade_ton * 1000;
@@ -303,9 +430,12 @@ app.get('/api/dashboard', (req, res) => {
           capacidade_total_ton: silos.reduce((sum, s) => sum + s.capacidade_ton, 0),
           animais_por_silo: dashboard.map(s => ({ silo_id: s.id, numero: s.numero, animais: s.animais_atrelados, percentual: s.percentual_animais }))
         },
+            // Alertas formatados com os campos esperados pelo frontend
         alertas: dashboard.filter(s => s.dias_restantes <= 5).map(s => ({
+          id: s.id,
           silo_id: s.id,
-          nivel: s.nivel_alerta,
+          numero: s.numero,
+          nivel_alerta: s.nivel_alerta,
           dias_restantes: s.dias_restantes,
           prioridade: determinarNivelAlerta(s.dias_restantes).prioridade
         })),
@@ -398,12 +528,20 @@ app.post('/api/consumo', (req, res) => {
       historicoMudancas = historicoMudancas.slice(-100);
     }
 
+    // Salvar estado
+    saveData();
+
     // Calcular novos valores
     const lotesSilo = lotes.filter(l => l.silo_id === silo_id);
     const consumoDiario = lotesSilo.reduce((total, lote) => 
       total + calcularConsumoDiario(lote, temperatura), 0);
     const diasRestantes = calcularDiasRestantes(silo, consumoDiario);
     const nivelAlerta = determinarNivelAlerta(diasRestantes);
+
+    // Notificar se necessário
+    if (['CRITICO','URGENTE','ALERTA'].includes(nivelAlerta.nivel)) {
+      notifyAlert(silo, `Silo ${silo.numero} com nível ${nivelAlerta.nivel} - ${diasRestantes} dias restantes`);
+    }
 
     res.json({ 
       success: true, 
@@ -489,9 +627,9 @@ app.post('/api/recarga', (req, res) => {
     }
     silo.ultima_recarga = new Date().toISOString();
     
-    // Atualizar lotes com novo tipo de ração
+    // Atualizar lotes com novo tipo de ração **APENAS** se solicitado (flag aplicar_a_lotes)
     let lotesAtualizados = 0;
-    if (tipo_racao) {
+    if (tipo_racao && req.body.aplicar_a_lotes === true) {
       const lotesSilo = lotes.filter(l => l.silo_id === silo_id);
       lotesSilo.forEach(lote => {
         lote.fase_crescimento = tipo_racao;
@@ -512,18 +650,41 @@ app.post('/api/recarga', (req, res) => {
       timestamp: new Date().toISOString()
     });
 
+    // Salvar estado
+    saveData();
+
     // Limitar histórico
     if (historicoMudancas.length > 100) {
       historicoMudancas = historicoMudancas.slice(-100);
     }
 
-    // Calcular novos valores
+    // Recalcular valores antes e depois para determinar se o alerta mudou
+    const lotesSiloAntes = lotes.filter(l => l.silo_id === silo_id);
+    const consumoAntes = lotesSiloAntes.reduce((total, lote) => total + calcularConsumoDiario(lote), 0);
+    const diasAntes = calcularDiasRestantes(Object.assign({}, silo, { racao_atual_kg: racaoAnterior }), consumoAntes);
+    const nivelAntes = determinarNivelAlerta(diasAntes).nivel;
+
     const lotesSilo = lotes.filter(l => l.silo_id === silo_id);
-    const consumoDiario = lotesSilo.reduce((total, lote) => 
-      total + calcularConsumoDiario(lote), 0);
+    const consumoDiario = lotesSilo.reduce((total, lote) => total + calcularConsumoDiario(lote), 0);
     const diasRestantes = calcularDiasRestantes(silo, consumoDiario);
     const nivelAlerta = determinarNivelAlerta(diasRestantes);
     const pedidoRecomendado = calcularQuantidadePedido(silo, consumoDiario);
+
+    // Montar objeto de alerta para o frontend
+    const alerta = {
+      melhorou: false,
+      nivel_anterior: nivelAntes,
+      nivel_atual: nivelAlerta.nivel
+    };
+
+    if (nivelAntes !== nivelAlerta.nivel) {
+      alerta.melhorou = ['CRITICO','URGENTE','ALERTA'].indexOf(nivelAlerta.nivel) < ['CRITICO','URGENTE','ALERTA'].indexOf(nivelAntes);
+    }
+
+    // Notificar se o nível é crítico/urgente/alerta
+    if (['CRITICO','URGENTE','ALERTA'].includes(nivelAlerta.nivel)) {
+      notifyAlert(silo, `Silo ${silo.numero} com nível ${nivelAlerta.nivel} - ${diasRestantes} dias restantes`);
+    }
 
     res.json({ 
       success: true, 
@@ -646,6 +807,12 @@ app.post('/api/simular-dia', (req, res) => {
       };
     }).filter(a => a.precisa_atencao);
 
+    // Salvar estado após simulação
+    saveData();
+
+    // Notificar alertas gerados
+    alertas.forEach(a => notifyAlert({ numero: a.numero, id: a.silo_id }, `Silo ${a.numero} precisa de atenção: ${a.dias_restantes} dias restantes (${a.nivel_alerta})`));
+
     res.json({
       success: true,
       message: '✅ Dia simulado com sucesso!',
@@ -682,36 +849,7 @@ app.get('/api/lotes', (req, res) => {
   });
 });
 
-// 7. Webhook de teste
-app.post('/api/webhook/teste', (req, res) => {
-  console.log('📨 Webhook recebido:', req.body);
-  
-  const resposta = {
-    success: true,
-    message: '✅ Webhook processado com sucesso!',
-    recebido_em: new Date().toISOString(),
-    dados_recebidos: req.body,
-    sistema: {
-      nome: 'PigFeed Manager',
-      silos_ativos: silos.length,
-      lotes_ativos: lotes.length,
-      animais_total: lotes.reduce((sum, l) => sum + l.quantidade_atual, 0),
-      versao: '1.0.0',
-      status: 'operacional'
-    },
-    alertas_ativos: silos.filter(s => {
-      const lotesSilo = lotes.filter(l => l.silo_id === s.id);
-      const consumo = lotesSilo.reduce((t, l) => t + calcularConsumoDiario(l), 0);
-      return calcularDiasRestantes(s, consumo) <= 3;
-    }).map(s => ({
-      silo_id: s.id,
-      numero: s.numero,
-      dias_restantes: calcularDiasRestantes(s, 0)
-    }))
-  };
-  
-  res.json(resposta);
-});
+
 
 // 8. Detalhes do silo
 app.get('/api/silos/:id', (req, res) => {
@@ -855,29 +993,31 @@ app.get('/api/status', (req, res) => {
 });
 
 // ========== INICIAR SERVIDOR ==========
-app.listen(PORT, () => {
-  console.log(`╔══════════════════════════════════════════╗`);
-  console.log(`║     🐷 PIGFEED MANAGER API v1.0.0       ║`);
-  console.log(`╠══════════════════════════════════════════╣`);
-  console.log(`║ ✅ Porta: ${PORT}                          ║`);
-  console.log(`║ 🌐 URL: http://localhost:${PORT}           ║`);
-  console.log(`║ 📊 Dashboard: http://localhost:${PORT}/api/dashboard ║`);
-  console.log(`╠══════════════════════════════════════════╣`);
-  console.log(`║ 🏭 Silos monitorados: ${silos.length}          ║`);
-  console.log(`║ 📦 Lotes ativos: ${lotes.length}              ║`);
-  console.log(`║ 🐷 Total animais: ${lotes.reduce((s, l) => s + l.quantidade_atual, 0)} ║`);
-  console.log(`║ 📊 Capacidade total: ${silos.reduce((s, silo) => s + silo.capacidade_ton, 0)} ton ║`);
-  console.log(`╠══════════════════════════════════════════╣`);
-  console.log(`║ 🔄 Para parar: CTRL + C                  ║`);
-  console.log(`╚══════════════════════════════════════════╝`);
-  console.log(`\n📋 Endpoints principais:`);
-  console.log(`   GET  /api/dashboard          - Dashboard completo`);
-  console.log(`   POST /api/recarga            - Registrar recarga`);
-  console.log(`   POST /api/consumo            - Registrar consumo`);
-  console.log(`   POST /api/simular-dia        - Simular 1 dia`);
-  console.log(`   POST /api/webhook/teste      - Testar webhook`);
-  console.log(`   GET  /api/status             - Status do sistema`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`╔══════════════════════════════════════════╗`);
+    console.log(`║     🐷 PIGFEED MANAGER API v1.0.0       ║`);
+    console.log(`╠══════════════════════════════════════════╣`);
+    console.log(`║ ✅ Porta: ${PORT}                          ║`);
+    console.log(`║ 🌐 URL: http://localhost:${PORT}           ║`);
+    console.log(`║ 📊 Dashboard: http://localhost:${PORT}/api/dashboard ║`);
+    console.log(`╠══════════════════════════════════════════╣`);
+    console.log(`║ 🏭 Silos monitorados: ${silos.length}          ║`);
+    console.log(`║ 📦 Lotes ativos: ${lotes.length}              ║`);
+    console.log(`║ 🐷 Total animais: ${lotes.reduce((s, l) => s + l.quantidade_atual, 0)} ║`);
+    console.log(`║ 📊 Capacidade total: ${silos.reduce((s, silo) => s + silo.capacidade_ton, 0)} ton ║`);
+    console.log(`╠══════════════════════════════════════════╣`);
+    console.log(`║ 🔄 Para parar: CTRL + C                  ║`);
+    console.log(`╚══════════════════════════════════════════╝`);
+    console.log(`\n📋 Endpoints principais:`);
+    console.log(`   GET  /api/dashboard          - Dashboard completo`);
+    console.log(`   POST /api/recarga            - Registrar recarga`);
+    console.log(`   POST /api/consumo            - Registrar consumo`);
+    console.log(`   POST /api/simular-dia        - Simular 1 dia`);
+  });
+}
+
+module.exports = app;
 
 // Tratamento de erro na porta
 app.on('error', (error) => {
