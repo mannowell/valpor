@@ -1,0 +1,15 @@
+{
+  "name": "pigfeed-manager-frontend",
+  "version": "1.0.0",
+  "description": "Dashboard para gestão de ração de suínos",
+  "scripts": {
+    "start": "live-server --port=5173",
+    "build": "echo 'Build não necessário para HTML estático'",
+    "deploy": "gh-pages -d ."
+  },
+  "devDependencies": {
+    "live-server": "^1.2.2",
+    "gh-pages": "^5.0.0"
+  },
+  "homepage": "https://mannowell.github.io/pigfeed-manager"
+}

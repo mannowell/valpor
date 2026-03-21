@@ -163,6 +163,20 @@ let lotes = [
     mortalidade_acumulada: 10,
     temperatura: 24
   },
+  // Anexo do pavilhão 3 (1/4 da capacidade)
+  { 
+    id: 'LOTE-003A', 
+    silo_id: 3, 
+    quantidade_inicial: 225, 
+    quantidade_atual: 220, 
+    fase_crescimento: 'crescimento2', 
+    data_entrada: '2024-02-10T00:00:00Z',
+    peso_medio_kg: 44.0,
+    mortalidade_acumulada: 2,
+    temperatura: 24,
+    anexo: true,
+    pavilhao: '3-Anexo'
+  },
   { 
     id: 'LOTE-004', 
     silo_id: 4, 
@@ -195,6 +209,20 @@ let lotes = [
     peso_medio_kg: 26.0,
     mortalidade_acumulada: 5,
     temperatura: 25
+  },
+  // Anexo do pavilhão 6 (1/4 da capacidade)
+  {
+    id: 'LOTE-006A',
+    silo_id: 6,
+    quantidade_inicial: 238,
+    quantidade_atual: 235,
+    fase_crescimento: 'crescimento1',
+    data_entrada: '2024-03-20T00:00:00Z',
+    peso_medio_kg: 25.5,
+    mortalidade_acumulada: 1,
+    temperatura: 25,
+    anexo: true,
+    pavilhao: '6-Anexo'
   },
   { 
     id: 'LOTE-007', 
@@ -246,6 +274,52 @@ function loadData() {
 
 // Carregar dados ao iniciar
 loadData();
+
+// Garantir que os anexos dos pavilhões 3 e 6 existam (caso o data.json venha de uma versão antiga)
+function ensureAnexoLotes() {
+  let changed = false;
+
+  if (!lotes.find(l => l.id === 'LOTE-003A')) {
+    lotes.push({
+      id: 'LOTE-003A',
+      silo_id: 3,
+      quantidade_inicial: 225,
+      quantidade_atual: 220,
+      fase_crescimento: 'crescimento2',
+      data_entrada: '2024-02-10T00:00:00Z',
+      peso_medio_kg: 44.0,
+      mortalidade_acumulada: 2,
+      temperatura: 24,
+      anexo: true,
+      pavilhao: '3-Anexo'
+    });
+    changed = true;
+  }
+
+  if (!lotes.find(l => l.id === 'LOTE-006A')) {
+    lotes.push({
+      id: 'LOTE-006A',
+      silo_id: 6,
+      quantidade_inicial: 238,
+      quantidade_atual: 235,
+      fase_crescimento: 'crescimento1',
+      data_entrada: '2024-03-20T00:00:00Z',
+      peso_medio_kg: 25.5,
+      mortalidade_acumulada: 1,
+      temperatura: 25,
+      anexo: true,
+      pavilhao: '6-Anexo'
+    });
+    changed = true;
+  }
+
+  if (changed) {
+    saveData();
+    console.log('✅ Anexos adicionados automaticamente e dados salvos');
+  }
+}
+
+ensureAnexoLotes();
 
 
 // ========== CONSTANTES DE CÁLCULO ==========
@@ -394,6 +468,16 @@ app.get('/api/dashboard', (req, res) => {
       const animais_atrelados = lotesSilo.reduce((sum, l) => sum + l.quantidade_atual, 0);
       const percentual_animais = total_animais > 0 ? ((animais_atrelados / total_animais) * 100).toFixed(1) : '0.0';
       
+      // Informações detalhadas dos lotes do silo (para UI mostrar sub-cards)
+      const lotes_info = lotesSilo.map(l => ({
+        id: l.id,
+        quantidade_inicial: l.quantidade_inicial,
+        quantidade_atual: l.quantidade_atual,
+        fase_crescimento: l.fase_crescimento,
+        anexo: l.anexo || false,
+        pavilhao: l.pavilhao || null
+      }));
+
       return {
         ...silo,
         percentual_preenchido: ((silo.racao_atual_kg / silo.capacidade_kg) * 100).toFixed(1),
@@ -403,6 +487,7 @@ app.get('/api/dashboard', (req, res) => {
         cor_alerta: nivelAlerta.cor,
         quantidade_lotes: lotesSilo.length,
         lotes_ids: lotesSilo.map(l => l.id),
+        lotes_info: lotes_info,
         animais_atrelados,
         percentual_animais,
         pedido_recomendado: pedidoRecomendado
@@ -448,6 +533,39 @@ app.get('/api/dashboard', (req, res) => {
       error: 'Erro interno no servidor',
       detalhes: error.message 
     });
+  }
+});
+
+// Endpoint para testar notificações (email/sms/whatsapp)
+app.post('/api/notify/test', async (req, res) => {
+  try {
+    const { channel, to, message } = req.body;
+    if (!channel || !['email','sms','whatsapp'].includes(channel)) {
+      return res.status(400).json({ success: false, error: 'channel inválido: use email, sms ou whatsapp' });
+    }
+
+    const payload = message || `Teste de notificação: canal=${channel} - ${new Date().toISOString()}`;
+    let result = false;
+    let info = '';
+
+    if (channel === 'email') {
+      const destino = to || ADMIN_CONTACTS.email;
+      result = await sendEmail(destino, 'Teste de Notificação - PigFeed Manager', payload);
+      info = `email -> ${destino}`;
+    } else if (channel === 'sms') {
+      const destino = to || ADMIN_CONTACTS.phone_sms;
+      result = await sendSMS(destino, payload);
+      info = `sms -> ${destino}`;
+    } else if (channel === 'whatsapp') {
+      const destino = to || ADMIN_CONTACTS.phone_whatsapp;
+      result = await sendWhatsApp(destino, payload);
+      info = `whatsapp -> ${destino}`;
+    }
+
+    res.json({ success: result, channel, info, message: result ? 'Enviado' : 'Falha (ver logs / configs)' });
+  } catch (error) {
+    console.error('❌ Erro em /api/notify/test:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

@@ -224,6 +224,10 @@
                             <i class="fas fa-calendar-day me-1"></i>Simular 1 Dia
                         </button>
 
+                        <button class="btn btn-outline-secondary me-2" onclick="mostrarModalNotificacoes()">
+                            <i class="fas fa-bell me-1"></i>Configurar Notificações
+                        </button>
+
                         <button class="btn btn-info me-2" onclick="recalcularAlertas()">
                             <i class="fas fa-redo-alt me-1"></i>Recalcular Alertas
                         </button>
@@ -321,6 +325,48 @@
                 </div>
             </div>
         </div>
+
+        <!-- Modal: Notificações / instruções -->
+        <div class="modal fade" id="modalNotificacoes" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="fas fa-bell me-2"></i>Configurar Notificações</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Para ativar o envio real de notificações, forneça as credenciais no arquivo <code>.env</code> na raiz do backend.</p>
+                        <h6>Email (SMTP)</h6>
+                        <ul>
+                            <li><code>SMTP_HOST</code> — servidor SMTP (ex: smtp.gmail.com)</li>
+                            <li><code>SMTP_PORT</code> — porta (ex: 587)</li>
+                            <li><code>SMTP_SECURE</code> — true/false (use true para porta 465)</li>
+                            <li><code>SMTP_USER</code> — usuário/login</li>
+                            <li><code>SMTP_PASS</code> — senha</li>
+                            <li><code>SMTP_FROM</code> — (opcional) email remetente</li>
+                        </ul>
+                        <h6>Twilio (SMS / WhatsApp)</h6>
+                        <ul>
+                            <li><code>TWILIO_ACCOUNT_SID</code></li>
+                            <li><code>TWILIO_AUTH_TOKEN</code></li>
+                            <li><code>TWILIO_FROM_SMS</code> — número autorizado (ex: +15551234567)</li>
+                            <li><code>TWILIO_FROM_WHATSAPP</code> — (ex: whatsapp:+1415XXXXXXX)</li>
+                        </ul>
+                        <h6>Contatos padrão</h6>
+                        <ul>
+                            <li><code>ADMIN_EMAIL</code> — email que receberá alertas (padrão: wellison.nascimento@hotmail.com)</li>
+                            <li><code>ADMIN_PHONE_SMS</code> — telefone para SMS (padrão: +351965563654)</li>
+                            <li><code>ADMIN_WHATSAPP</code> — telefone para WhatsApp (padrão: +5598987566701)</li>
+                        </ul>
+                        <p>Depois de configurar, reinicie o backend. Você poderá testar usando os botões <strong>Testar Email/SMS/WhatsApp</strong> nos cartões de lote.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <footer class="mt-5">
@@ -508,7 +554,25 @@ NORMAL: > 5 dias restantes</pre>
                             <p><strong>Ração atual:</strong> ${silo.racao_atual_kg.toLocaleString()} kg</p>
                             <p><strong>Tipo ração:</strong> ${silo.tipo_racao}</p>
                             <p><strong>Animais atrelados:</strong> ${silo.animais_atrelados ? silo.animais_atrelados.toLocaleString() : '0'} <small class="text-muted">(${silo.percentual_animais || '0.0'}% do total)</small></p>
-                            
+
+                            <!-- Lotes / Pavilhões (mostrar sub-cards lado a lado quando houver anexos) -->
+                            <div class="row mb-2">
+                                ${silo.lotes_info && silo.lotes_info.length > 0 ? silo.lotes_info.map(lote => `
+                                    <div class="col-6 mb-2">
+                                        <div class="p-2 bg-light rounded small">
+                                            <div><strong>${lote.id}${lote.anexo ? ' (Anexo)' : ''}</strong></div>
+                                            <div class="small">Animais: ${lote.quantidade_atual.toLocaleString()}</div>
+                                            <div class="small">Fase: ${lote.fase_crescimento}</div>
+                                            <div class="mt-2">
+                                                <button class="btn btn-sm btn-outline-primary me-1" onclick="testarNotificacao('email', ${silo.id}, '${lote.id}')">Testar Email</button>
+                                                <button class="btn btn-sm btn-outline-success me-1" onclick="testarNotificacao('sms', ${silo.id}, '${lote.id}')">Testar SMS</button>
+                                                <button class="btn btn-sm btn-outline-info" onclick="testarNotificacao('whatsapp', ${silo.id}, '${lote.id}')">Testar WhatsApp</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `).join('') : ''}
+                            </div>
+
                             <div class="mb-3">
                                 <div class="d-flex justify-content-between mb-1">
                                     <small>${percentual.toFixed(1)}% preenchido</small>
@@ -703,10 +767,10 @@ NORMAL: > 5 dias restantes</pre>
             const silosExemplo = [
                 { id: 1, numero: 1, capacidade_ton: 12, capacidade_kg: 12000, racao_atual_kg: 8500, 
                   tipo_racao: 'inicial', percentual_preenchido: '70.8', consumo_diario_kg: 980, 
-                  dias_restantes: 8, nivel_alerta: 'NORMAL', cor_alerta: '#3498db', animais_atrelados: 980, percentual_animais: '26.8' },
+                  dias_restantes: 8, nivel_alerta: 'NORMAL', cor_alerta: '#3498db', animais_atrelados: 980, percentual_animais: '26.8', lotes_info: [{id:'LOTE-001', quantidade_atual:980, fase_crescimento:'inicial'}] },
                 { id: 2, numero: 2, capacidade_ton: 10, capacidade_kg: 10000, racao_atual_kg: 3200, 
                   tipo_racao: 'crescimento1', percentual_preenchido: '32.0', consumo_diario_kg: 1410, 
-                  dias_restantes: 2, nivel_alerta: 'URGENTE', cor_alerta: '#e67e22', animais_atrelados: 940, percentual_animais: '25.7' }
+                  dias_restantes: 2, nivel_alerta: 'URGENTE', cor_alerta: '#e67e22', animais_atrelados: 940, percentual_animais: '25.7', lotes_info: [{id:'LOTE-002', quantidade_atual:940, fase_crescimento:'crescimento1'}, {id:'LOTE-002A', quantidade_atual:240, fase_crescimento:'crescimento1', anexo:true}] }
             ];
             
             renderizarSilos(silosExemplo);
@@ -937,6 +1001,12 @@ NORMAL: > 5 dias restantes</pre>
             modal.show();
         }
 
+        // Mostrar modal de instruções para notificações
+        function mostrarModalNotificacoes() {
+            const modal = new bootstrap.Modal(document.getElementById('modalNotificacoes'));
+            modal.show();
+        }
+
         // Recalcular alertas
         async function recalcularAlertas() {
             try {
@@ -953,6 +1023,30 @@ NORMAL: > 5 dias restantes</pre>
                 }
             } catch (error) {
                 alert('❌ Erro ao recalcular alertas');
+            }
+        }
+
+        // Testar notificação (email, sms, whatsapp) para um lote específico
+        async function testarNotificacao(channel, siloId, loteId) {
+            const confirmar = confirm(`Enviar teste por ${channel.toUpperCase()} para \nSilo: ${siloId} - Lote: ${loteId}?`);
+            if (!confirmar) return;
+
+            try {
+                const response = await fetch(`${API_URL}/api/notify/test`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ channel, message: `Teste de alerta para Silo ${siloId}, Lote ${loteId}` })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    alert(`✅ Teste enviado (${data.info || channel}).`);
+                } else {
+                    alert(`❌ Falha ao enviar teste: ${data.error || data.message || 'Ver logs do servidor'}`);
+                }
+            } catch (error) {
+                console.error('Erro no teste de notificação:', error);
+                alert(`❌ Erro ao enviar teste: ${error.message}`);
             }
         }
 

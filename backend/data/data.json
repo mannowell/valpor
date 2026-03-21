@@ -1,0 +1,206 @@
+{
+  "silos": [
+    {
+      "id": 1,
+      "numero": 1,
+      "capacidade_ton": 12,
+      "capacidade_kg": 12000,
+      "racao_atual_kg": 8500,
+      "tipo_racao": "inicial",
+      "ativo": true,
+      "localizacao": "Setor A",
+      "fornecedor": "Fábrica Principal",
+      "ultima_recarga": "2024-01-10T08:00:00Z"
+    },
+    {
+      "id": 2,
+      "numero": 2,
+      "capacidade_ton": 10,
+      "capacidade_kg": 10000,
+      "racao_atual_kg": 4000,
+      "tipo_racao": "crescimento1",
+      "ativo": true,
+      "localizacao": "Setor A",
+      "fornecedor": "Fábrica Principal",
+      "ultima_recarga": "2025-12-27T11:03:41.600Z"
+    },
+    {
+      "id": 3,
+      "numero": 3,
+      "capacidade_ton": 10,
+      "capacidade_kg": 10000,
+      "racao_atual_kg": 8000,
+      "tipo_racao": "crescimento2",
+      "ativo": true,
+      "localizacao": "Setor B",
+      "fornecedor": "Fábrica Principal",
+      "ultima_recarga": "2024-01-11T10:00:00Z"
+    },
+    {
+      "id": 4,
+      "numero": 4,
+      "capacidade_ton": 10,
+      "capacidade_kg": 10000,
+      "racao_atual_kg": 6000,
+      "tipo_racao": "finalizacao",
+      "ativo": true,
+      "localizacao": "Setor B",
+      "fornecedor": "Fábrica Secundária",
+      "ultima_recarga": "2024-01-13T09:15:00Z"
+    },
+    {
+      "id": 5,
+      "numero": 5,
+      "capacidade_ton": 12,
+      "capacidade_kg": 12000,
+      "racao_atual_kg": 11000,
+      "tipo_racao": "inicial",
+      "ativo": true,
+      "localizacao": "Setor C",
+      "fornecedor": "Fábrica Principal",
+      "ultima_recarga": "2024-01-09T11:45:00Z"
+    },
+    {
+      "id": 6,
+      "numero": 6,
+      "capacidade_ton": 12,
+      "capacidade_kg": 12000,
+      "racao_atual_kg": 9000,
+      "tipo_racao": "crescimento1",
+      "ativo": true,
+      "localizacao": "Setor C",
+      "fornecedor": "Fábrica Principal",
+      "ultima_recarga": "2024-01-14T16:20:00Z"
+    },
+    {
+      "id": 7,
+      "numero": 7,
+      "capacidade_ton": 10,
+      "capacidade_kg": 10000,
+      "racao_atual_kg": 4500,
+      "tipo_racao": "crescimento2",
+      "ativo": true,
+      "localizacao": "Setor D",
+      "fornecedor": "Fábrica Secundária",
+      "ultima_recarga": "2024-01-08T13:10:00Z"
+    }
+  ],
+  "lotes": [
+    {
+      "id": "LOTE-001",
+      "silo_id": 1,
+      "quantidade_inicial": 1000,
+      "quantidade_atual": 980,
+      "fase_crescimento": "inicial",
+      "data_entrada": "2024-01-01T00:00:00Z",
+      "peso_medio_kg": 8.5,
+      "mortalidade_acumulada": 20,
+      "temperatura": 28
+    },
+    {
+      "id": "LOTE-002",
+      "silo_id": 2,
+      "quantidade_inicial": 950,
+      "quantidade_atual": 940,
+      "fase_crescimento": "crescimento1",
+      "data_entrada": "2024-01-15T00:00:00Z",
+      "peso_medio_kg": 25,
+      "mortalidade_acumulada": 10,
+      "temperatura": 26
+    },
+    {
+      "id": "LOTE-003",
+      "silo_id": 3,
+      "quantidade_inicial": 900,
+      "quantidade_atual": 890,
+      "fase_crescimento": "crescimento2",
+      "data_entrada": "2024-02-01T00:00:00Z",
+      "peso_medio_kg": 45,
+      "mortalidade_acumulada": 10,
+      "temperatura": 24
+    },
+    {
+      "id": "LOTE-004",
+      "silo_id": 4,
+      "quantidade_inicial": 850,
+      "quantidade_atual": 845,
+      "fase_crescimento": "finalizacao",
+      "data_entrada": "2024-02-15T00:00:00Z",
+      "peso_medio_kg": 85,
+      "mortalidade_acumulada": 5,
+      "temperatura": 22
+    },
+    {
+      "id": "LOTE-005",
+      "silo_id": 5,
+      "quantidade_inicial": 1000,
+      "quantidade_atual": 995,
+      "fase_crescimento": "inicial",
+      "data_entrada": "2024-03-01T00:00:00Z",
+      "peso_medio_kg": 9,
+      "mortalidade_acumulada": 5,
+      "temperatura": 27
+    },
+    {
+      "id": "LOTE-006",
+      "silo_id": 6,
+      "quantidade_inicial": 950,
+      "quantidade_atual": 945,
+      "fase_crescimento": "crescimento1",
+      "data_entrada": "2024-03-15T00:00:00Z",
+      "peso_medio_kg": 26,
+      "mortalidade_acumulada": 5,
+      "temperatura": 25
+    },
+    {
+      "id": "LOTE-007",
+      "silo_id": 7,
+      "quantidade_inicial": 900,
+      "quantidade_atual": 895,
+      "fase_crescimento": "crescimento2",
+      "data_entrada": "2024-04-01T00:00:00Z",
+      "peso_medio_kg": 46,
+      "mortalidade_acumulada": 5,
+      "temperatura": 23
+    },
+    {
+      "id": "LOTE-003A",
+      "silo_id": 3,
+      "quantidade_inicial": 225,
+      "quantidade_atual": 220,
+      "fase_crescimento": "crescimento2",
+      "data_entrada": "2024-02-10T00:00:00Z",
+      "peso_medio_kg": 44,
+      "mortalidade_acumulada": 2,
+      "temperatura": 24,
+      "anexo": true,
+      "pavilhao": "3-Anexo"
+    },
+    {
+      "id": "LOTE-006A",
+      "silo_id": 6,
+      "quantidade_inicial": 238,
+      "quantidade_atual": 235,
+      "fase_crescimento": "crescimento1",
+      "data_entrada": "2024-03-20T00:00:00Z",
+      "peso_medio_kg": 25.5,
+      "mortalidade_acumulada": 1,
+      "temperatura": 25,
+      "anexo": true,
+      "pavilhao": "6-Anexo"
+    }
+  ],
+  "historicoMudancas": [
+    {
+      "id": "c2d9b9f9-388d-42aa-b581-f2d02e7985f4",
+      "tipo": "recarga",
+      "silo_id": 2,
+      "quantidade_kg": 800,
+      "tipo_racao": "crescimento1",
+      "racao_anterior": 3200,
+      "racao_atual": 4000,
+      "lotes_atualizados": 0,
+      "timestamp": "2025-12-27T11:03:41.602Z"
+    }
+  ]
+}
