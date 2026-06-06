@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+
+      - name: "Setup Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: "Backend: install & test (if present)"
+        run: |
+          if [ -f backend/package.json ]; then
+            echo "==> Backend detected: installing dependencies"
+            cd backend
+            npm ci
+            npm run build --if-present
+            npm run test --if-present
+          else
+            echo "No backend/package.json found — skipping backend steps"
+          fi
+
+      - name: "Frontend: install & test (if present)"
+        run: |
+          if [ -f frontend/package.json ]; then
+            echo "==> Frontend detected: installing dependencies"
+            cd frontend
+            npm ci
+            npm run build --if-present
+            npm run test --if-present
+          else
+            echo "No frontend/package.json found — skipping frontend steps"
+          fi
+
+      - name: "Lint (optional)"
+        run: |
+          # Run a lint step if a root-level package.json defines lint
+          if [ -f package.json ] && grep -q '"lint"' package.json; then
+            echo "Running root lint"
+            npm ci
+            npm run lint --if-present
+          else
+            echo "No root lint script found — skipping"
+          fi
