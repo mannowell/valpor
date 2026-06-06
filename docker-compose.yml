@@ -10,6 +10,7 @@ services:
       - NODE_ENV=production
     volumes:
       - ./backend:/app:ro
+      - valpor_node_modules:/app/node_modules
     restart: always
 
   web:
@@ -22,3 +23,7 @@ services:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - app
+
+volumes:
+  valpor_node_modules:
+    driver: local
