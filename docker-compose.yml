@@ -4,13 +4,12 @@ services:
     working_dir: /app
     command: >
       bash -lc "npm install --production &&
-                 node backend/server.js"
+                 node server.js"
     environment:
       - PORT=3000
       - NODE_ENV=production
     volumes:
-      - ./backend:/app/backend:ro
-      - ./frontend:/app/frontend:ro
+      - ./backend:/app:ro
     restart: always
 
   web:
